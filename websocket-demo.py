@@ -75,6 +75,8 @@ loaded_model = pickle.load(open("models/GaussianNB-20190130T1233.pkl", "rb"))
 print(loaded_model)
 client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
 print(client)
+print(APP_ID)
+print(PRIVATE_KEY)
 class BufferedPipe(object):
     def __init__(self, max_frames, sink):
         """
@@ -138,7 +140,8 @@ class AudioProcessor(object):
                 beep_captured = True
                 print("send_speech",uuids)
                 for id in uuids:
-                    self.client.send_speech(id, text='Answering Machine Detected')
+                    response = self.client.send_speech(id, text='Answering Machine Detected')
+                    print("send_speech response",response)
                 time.sleep(4)
                 for id in uuids:
                     try:
@@ -220,16 +223,17 @@ class PingHandler(tornado.web.RequestHandler):
 class EventHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def post(self):
-        # print("event:", self.request.body)
-
         data = json.loads(self.request.body)
+        if data["status"] == "answered":
+            print("event:", self.request.body)
+
         try:
             if data["status"] == "answered":
                 uuid = data["uuid"]
                 uuids.append(uuid)
                 conversation_uuid = data["conversation_uuid"]
                 conversation_uuids[conversation_uuid] = uuid
-                print(conversation_uuids)
+                # print(conversation_uuids)
         except:
             pass
 
@@ -283,10 +287,6 @@ class AcceptNumberHandler(tornado.web.RequestHandler):
               {
                 "action": "talk",
                 "text": "Thanks. Connecting you now"
-              },
-            {
-                "action": "record",
-                "eventUrl": [self.request.protocol +"://" + self.request.host  +"/recording"],
               },
              {
              "action": "connect",
