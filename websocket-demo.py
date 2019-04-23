@@ -136,6 +136,7 @@ class AudioProcessor(object):
 
             if prediction[0] == 0:
                 beep_captured = True
+                print("send_speech",uuids)
                 for id in uuids:
                     self.client.send_speech(id, text='Answering Machine Detected')
                 time.sleep(4)
