@@ -35,7 +35,7 @@ import pickle
 from google.cloud import storage
 
 from dotenv import load_dotenv
-from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
 
 load_dotenv()
 
@@ -81,12 +81,13 @@ clients = []
 conversation_uuids = dict()
 uuids = []
 
-loaded_model = pickle.load(open("models/GaussianNB-20190130T1233.pkl", "rb"))
+loaded_model = pickle.load(open("models/RandomForestClassifier-20190502T1202.pkl", "rb"))
 print(loaded_model)
 client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
 print(client)
 print(APP_ID)
 print(PRIVATE_KEY)
+
 class BufferedPipe(object):
     def __init__(self, max_frames, sink):
         """
@@ -138,9 +139,23 @@ class AudioProcessor(object):
             print("load file {}".format(wav_file))
 
             X, sample_rate = librosa.load(wav_file, res_type='kaiser_fast')
-            mfccs = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
-            X = [mfccs]
-            prediction = loaded_model.predict(X)
+            stft = np.abs(librosa.stft(X))
+            mfccs_40 = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
+            chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T,axis=0)
+            mel = np.mean(librosa.feature.melspectrogram(y=X, sr=sample_rate,n_mels=128,fmax=8000).T,axis=0)
+            contrast = np.mean(librosa.feature.spectral_contrast(S=stft, sr=sample_rate).T,axis=0)
+            tonnetz = np.mean(librosa.feature.tonnetz(y=librosa.effects.harmonic(X),
+            sr=sample_rate).T,axis=0)
+
+            a = [mfccs_40, chroma, mel, contrast, tonnetz]
+
+            total_len = 0
+            for f in a:
+                total_len += f.shape[0]
+
+            features = np.vstack([np.empty((0,total_len)),np.hstack(a)])
+
+            prediction = loaded_model.predict(features)
             print("prediction",prediction)
 
             if prediction[0] == 0:
