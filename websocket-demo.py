@@ -44,8 +44,18 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 logging.captureWarnings(True)
 
 
+CLIP_MIN_MS = 150  # ms - the minimum audio clip that will be used
+MAX_LENGTH = 10000  # Max length of a sound clip for processing in ms
+
+
 # Constants:
-MS_PER_FRAME = 15  # Duration of a frame in ms
+BYTES_PER_FRAME = 640  # Bytes in a frame
+MS_PER_FRAME = 20  # Duration of a frame in ms
+RATE = 16000
+SILENCE = 20  # How many continuous frames of silence determine the end of a phrase
+
+CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
+
 MY_LVN = os.getenv("MY_LVN")
 APP_ID = os.getenv("APP_ID")
 PROJECT_ID = os.getenv("PROJECT_ID")
@@ -107,17 +117,14 @@ class BufferedPipe(object):
         self.payload = b''
 
 class AudioProcessor(object):
-    def __init__(self, path, rate, clip_min, client):
-        self.rate = rate
-        self.bytes_per_frame = rate/25
+    def __init__(self, path, client):
         self._path = path
-        self.clip_min_frames = clip_min // MS_PER_FRAME
         self.client = client
     def process(self, count, payload, id):
-        if count > self.clip_min_frames:  # If the buffer is less than CLIP_MIN_MS, ignore it
+        if count > CLIP_MIN_FRAMES:  # If the buffer is less than CLIP_MIN_MS, ignore it
             fn = "{}rec-{}-{}.wav".format('', id, datetime.datetime.now().strftime("%Y%m%dT%H%M%S"))
             output = wave.open(fn, 'wb')
-            output.setparams((1, 2, self.rate, 0, 'NONE', 'not compressed'))
+            output.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
             output.writeframes(payload)
             output.close()
             debug('File written {}'.format(fn))
@@ -165,8 +172,6 @@ class WSHandler(tornado.websocket.WebSocketHandler):
           # Level of sensitivity
         self.processor = None
         self.path = None
-        self.rate = None #default to None
-        self.silence = 20 #default of 20 frames (400ms)
         conns[self.id] = self
     def open(self, path):
         info("client connected")
@@ -177,10 +182,9 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, message):
         # Check if message is Binary or Text
         if type(message) != str:
-            # print(self.rate)
-            if self.vad.is_speech(message, self.rate):
+            if self.vad.is_speech(message, RATE):
                 debug ("SPEECH from {}".format(self.id))
-                self.tick = self.silence
+                self.tick = SILENCE
                 self.frame_buffer.append(message, self.id)
             else:
                 debug("Silence from {} TICK: {}".format(self.id, self.tick))
@@ -192,18 +196,10 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             data = json.loads(message)
             print("on_message",data)
             if data.get('content-type'):
-                m_type, m_options = cgi.parse_header(data['content-type'])
-                self.rate = 16000
-                # region = data.get('aws_region', 'us-east-1')
-                clip_min = int(data.get('clip_min', 200))
-                clip_max = int(data.get('clip_max', 10000))
-                silence_time = int(data.get('silence_time', 300))
-                sensitivity = int(data.get('sensitivity', 3))
                 uuid = data.get('uuid')
-                self.vad.set_mode(sensitivity)
-                self.silence = silence_time // MS_PER_FRAME
-                self.processor = AudioProcessor(self.path, self.rate, clip_min, client).process
-                self.frame_buffer = BufferedPipe(clip_max // MS_PER_FRAME, self.processor)
+                self.vad.set_mode(3)
+                self.processor = AudioProcessor(self.path, client).process
+                self.frame_buffer = BufferedPipe(MAX_LENGTH // MS_PER_FRAME, self.processor)
                 self.write_message('ok')
     def on_close(self):
         print("close")
