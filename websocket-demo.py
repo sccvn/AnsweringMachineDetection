@@ -49,10 +49,9 @@ MAX_LENGTH = 10000  # Max length of a sound clip for processing in ms
 
 
 # Constants:
-BYTES_PER_FRAME = 640  # Bytes in a frame
 MS_PER_FRAME = 20  # Duration of a frame in ms
 RATE = 16000
-SILENCE = 20  # How many continuous frames of silence determine the end of a phrase
+SILENCE = 2  # How many continuous frames of silence determine the end of a phrase
 
 CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 
@@ -137,8 +136,10 @@ class AudioProcessor(object):
     def process_file(self, wav_file):
         if loaded_model != None:
             print("load file {}".format(wav_file))
-
             X, sample_rate = librosa.load(wav_file, res_type='kaiser_fast')
+            X = librosa.resample(X, sample_rate, 16000)
+
+            duration = librosa.get_duration(X, sample_rate)
             stft = np.abs(librosa.stft(X))
             mfccs_40 = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
             chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T,axis=0)
@@ -156,6 +157,7 @@ class AudioProcessor(object):
             features = np.vstack([np.empty((0,total_len)),np.hstack(a)])
 
             prediction = loaded_model.predict(features)
+            # prediction = loaded_model.predict([mfccs_40])
             print("prediction",prediction)
 
             if prediction[0] == 0:
