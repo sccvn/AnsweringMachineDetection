@@ -80,7 +80,7 @@ clients = []
 conversation_uuids = dict()
 uuids = []
 
-loaded_model = pickle.load(open("models/RandomForestClassifier-20190502T1202.pkl", "rb"))
+loaded_model = pickle.load(open("models/GaussianNB-20190506T1929.pkl", "rb"))
 print(loaded_model)
 client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
 print(client)
