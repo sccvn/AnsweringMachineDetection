@@ -49,7 +49,6 @@ CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 # Global variables
 conns = {}
 conversation_uuids = collections.defaultdict(list)
-uuids = []
 nexmo_client = None
 loaded_model = pickle.load(open("models/GaussianNB-20190130T1233.pkl", "rb"))
 print(loaded_model)
@@ -108,16 +107,18 @@ class NexmoClient(object):
     def __init__(self):
         self.client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
     def hangup(self,conversation_uuid):
-        for uuid in conversation_uuids[conversation_uuid]:
+        for event in conversation_uuids[conversation_uuid]:
             try:
-                response = self.client.update_call(uuid, action='hangup')
-                print("hangup uuid {} response: {}".format(uuid, response))
+                response = self.client.update_call(event["uuid"], action='hangup')
+                print("hangup uuid {} response: {}".format(event["conversation_uuid"], response))
             except Exception as e:
                 print("Hangup error",e)
+        conversation_uuids[conversation_uuid].clear()
     def speak(self, conversation_uuid):
-         for uuid in conversation_uuids[conversation_uuid]:
+         for event in conversation_uuids[conversation_uuid]:
+            print(event)
             try:
-                response = self.client.send_speech(uuid, text='Answering Machine Detected')
+                response = self.client.send_speech(event["uuid"], text='Answering Machine Detected')
                 print("response", response)
             except Exception as e:
                 print(e)
@@ -128,10 +129,10 @@ class AudioProcessor(object):
         self._path = path
         self.conversation_uuid = conversation_uuid
 
-    def process(self, count, payload, id):
+    def process(self, count, payload, conversation_uuid):
         if count > CLIP_MIN_FRAMES :  # If the buffer is less than CLIP_MIN_MS, ignore it
             print("record clip")
-            fn = "rec-{}-{}.wav".format(id,datetime.datetime.now().strftime("%Y%m%dT%H%M%S"))
+            fn = "rec-{}-{}.wav".format(conversation_uuid,datetime.datetime.now().strftime("%Y%m%dT%H%M%S"))
             output = wave.open(fn, 'wb')
             output.setparams(
                 (1, 2, RATE, 0, 'NONE', 'not compressed'))
@@ -142,9 +143,9 @@ class AudioProcessor(object):
             self.remove_file(fn)
 
             if prediction[0] == 0:
-                nexmo_client.speak(self.conversation_uuid)
+                nexmo_client.speak(conversation_uuid)
                 time.sleep(2)
-                nexmo_client.hangup(self.conversation_uuid)
+                nexmo_client.hangup(conversation_uuid)
         else:
             info('Discarding {} frames'.format(str(count)))
 
@@ -180,7 +181,6 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         self.path = None
         self.nexmo_client = NexmoClient()
 
-        conns[self.id] = self
 
     def open(self, path):
         info("client connected")
@@ -209,6 +209,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             if data.get('content-type'):
                 conversation_uuid = data.get('conversation_uuid') #change to use
                 self.id = conversation_uuid
+                conns[self.id] = self
                 self.processor = AudioProcessor(
                     self.path, conversation_uuid).process
                 self.frame_buffer = BufferedPipe(MAX_LENGTH // MS_PER_FRAME, self.processor)
@@ -227,14 +228,11 @@ class EventHandler(tornado.web.RequestHandler):
             print(data)
 
             conversation_uuid = data["conversation_uuid"]
-            uuid = data["uuid"]
-            conversation_uuids[conversation_uuid].append(uuid)
-            uuids.append(uuid)
+            conversation_uuids[conversation_uuid].append(data)
 
-        if data["status"] == "completed":
+        if data["to"] == MY_LVN and data["status"] == "completed":
             conversation_uuid = data["conversation_uuid"]
             nexmo_client.hangup(conversation_uuid)
-            conversation_uuids[conversation_uuid].clear()
         self.content_type = 'text/plain'
         self.write('ok')
         self.finish()
