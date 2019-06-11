@@ -63,6 +63,8 @@ APP_ID = os.getenv("APP_ID")
 PROJECT_ID = os.getenv("PROJECT_ID")
 CLOUD_STORAGE_BUCKET = os.getenv("CLOUD_STORAGE_BUCKET")
 
+ANSWERING_MACHINE_TEXT = os.getenv("ANSWERING_MACHINE_TEXT")
+
 def _get_private_key():
     try:
         return os.environ['PRIVATE_KEY']
@@ -106,6 +108,7 @@ class BufferedPipe(object):
 class NexmoClient(object):
     def __init__(self):
         self.client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
+
     def hangup(self,conversation_uuid):
         for event in conversation_uuids[conversation_uuid]:
             try:
@@ -114,15 +117,13 @@ class NexmoClient(object):
             except Exception as e:
                 print("Hangup error",e)
         conversation_uuids[conversation_uuid].clear()
+
     def speak(self, conversation_uuid):
-         for event in conversation_uuids[conversation_uuid]:
-            print(event)
-            try:
-                response = self.client.send_speech(event["uuid"], text='Answering Machine Detected')
-                print("response", response)
-            except Exception as e:
-                print(e)
-                pass
+        uuid = [event["uuid"] for event in conversation_uuids[conversation_uuid] if event["from"] == MY_LVN and "ws" not in event["to"]][0]
+        if uuid is not None:
+            print('found {}'.format(uuid))
+            response = self.client.send_speech(uuid, text=ANSWERING_MACHINE_TEXT)
+            print("send_speech response",response)
 
 class AudioProcessor(object):
     def __init__(self, path, conversation_uuid):
