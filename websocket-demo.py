@@ -119,11 +119,15 @@ class NexmoClient(object):
         conversation_uuids[conversation_uuid].clear()
 
     def speak(self, conversation_uuid):
-        uuid = [event["uuid"] for event in conversation_uuids[conversation_uuid] if event["from"] == MY_LVN and "ws" not in event["to"]][0]
+        uuids = [event["uuid"] for event in conversation_uuids[conversation_uuid] if event["from"] == MY_LVN and "ws" not in event["to"]]
+        uuid = next(iter(uuids), None)
+        print(uuid)
         if uuid is not None:
             print('found {}'.format(uuid))
             response = self.client.send_speech(uuid, text=ANSWERING_MACHINE_TEXT)
             print("send_speech response",response)
+        else:
+            print("{} does not exist in list {}".format(conversation_uuid, conversation_uuids[conversation_uuid]))
 
 class AudioProcessor(object):
     def __init__(self, path, conversation_uuid):
