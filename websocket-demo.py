@@ -40,9 +40,9 @@ logging.captureWarnings(True)
 # Constants:
 MS_PER_FRAME = 20  # Duration of a frame in ms
 RATE = 16000
-SILENCE = 15 # How many continuous frames of silence determine the end of a phrase
+SILENCE = 10 # How many continuous frames of silence determine the end of a phrase
 CLIP_MIN_MS = 200  # ms - the minimum audio clip that will be used
-MAX_LENGTH = 4000  # Max length of a sound clip for processing in ms
+MAX_LENGTH = 3000  # Max length of a sound clip for processing in ms
 VAD_SENSITIVITY = 3
 CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 
@@ -50,7 +50,7 @@ CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 conns = {}
 conversation_uuids = collections.defaultdict(list)
 nexmo_client = None
-loaded_model = pickle.load(open("models/GaussianNB-20190130T1233.pkl", "rb"))
+loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190711T1238.pkl", "rb"))
 print(loaded_model)
 
 
@@ -145,7 +145,7 @@ class AudioProcessor(object):
             output.close()
             prediction = self.predict_from_file(fn)
             print("prediction",prediction)
-            self.remove_file(fn)
+            # self.remove_file(fn)
 
             if prediction[0] == 0:
                 nexmo_client.speak(conversation_uuid)
@@ -159,6 +159,7 @@ class AudioProcessor(object):
             print("load file {}".format(wav_file))
             start = time.time()
             X, sample_rate = librosa.load(wav_file, res_type='kaiser_fast')
+            X = librosa.resample(X, sample_rate, 16000, res_type='kaiser_fast')
             mfccs_40 = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
             prediction = loaded_model.predict([mfccs_40])
             end = time.time()
