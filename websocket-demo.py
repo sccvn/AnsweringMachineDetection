@@ -65,6 +65,11 @@ CLOUD_STORAGE_BUCKET = os.getenv("CLOUD_STORAGE_BUCKET")
 
 ANSWERING_MACHINE_TEXT = os.getenv("ANSWERING_MACHINE_TEXT")
 
+
+from google.cloud import storage
+storage_client = storage.Client()
+bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
+
 def _get_private_key():
     try:
         return os.environ['PRIVATE_KEY']
@@ -145,7 +150,8 @@ class AudioProcessor(object):
             output.close()
             prediction = self.predict_from_file(fn)
             print("prediction",prediction)
-            # self.remove_file(fn)
+            self.upload_to_gcp(fn, conversation_uuid)
+            self.remove_file(fn)
 
             if prediction[0] == 0:
                 nexmo_client.speak(conversation_uuid)
@@ -168,6 +174,14 @@ class AudioProcessor(object):
 
     def remove_file(self, wav_file):
         os.remove(wav_file)
+
+    def upload_to_gcp(self, wav_file, conversation_uuid):
+        data = conversation_uuids[conversation_uuid][0]
+        if PROJECT_ID and CLOUD_STORAGE_BUCKET:
+            blob = bucket.blob("split_recordings/"+data["from"]+"_"+conversation_uuid + "/"+wav_file)
+            blob.upload_from_filename(wav_file, content_type="audio/wav")
+            print('File uploaded.')
+
 
 
 
