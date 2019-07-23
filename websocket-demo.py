@@ -50,7 +50,7 @@ CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 conns = {}
 conversation_uuids = collections.defaultdict(list)
 nexmo_client = None
-loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190711T1238.pkl", "rb"))
+loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190723T1222.pkl", "rb"))
 print(loaded_model)
 
 
@@ -166,8 +166,25 @@ class AudioProcessor(object):
             start = time.time()
             X, sample_rate = librosa.load(wav_file, res_type='kaiser_fast')
             X = librosa.resample(X, sample_rate, 16000, res_type='kaiser_fast')
+            # mfccs_40 = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
+            # prediction = loaded_model.predict([mfccs_40])
+
+            stft = np.abs(librosa.stft(X))
             mfccs_40 = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
-            prediction = loaded_model.predict([mfccs_40])
+            chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T,axis=0)
+            mel = np.mean(librosa.feature.melspectrogram(y=X, sr=sample_rate,n_mels=128,fmax=8000).T,axis=0)
+            contrast = np.mean(librosa.feature.spectral_contrast(S=stft, sr=sample_rate).T,axis=0)
+            tonnetz = np.mean(librosa.feature.tonnetz(y=librosa.effects.harmonic(X),
+            sr=sample_rate).T,axis=0)
+
+            a = [mfccs_40, chroma, mel, contrast, tonnetz]
+
+            total_len = 0
+            for f in a:
+              total_len += f.shape[0]
+
+            features = np.vstack([np.empty((0,total_len)),np.hstack(a)])
+            prediction = loaded_model.predict(features)
             end = time.time()
             print ("time {}".format(end - start))
             return  prediction
