@@ -50,7 +50,7 @@ CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 conns = {}
 conversation_uuids = collections.defaultdict(list)
 nexmo_client = None
-loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190723T1222.pkl", "rb"))
+loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190723T1905.pkl", "rb"))
 print(loaded_model)
 
 
