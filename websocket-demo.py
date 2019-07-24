@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
 from __future__ import absolute_import, print_function
+import glob
 import wave
+import random
+import struct
 import datetime
 import argparse
 import io
@@ -28,6 +31,7 @@ import collections
 import pickle
 import librosa
 import numpy as np
+import argparse
 
 
 from dotenv import load_dotenv
@@ -65,6 +69,9 @@ CLOUD_STORAGE_BUCKET = os.getenv("CLOUD_STORAGE_BUCKET")
 
 ANSWERING_MACHINE_TEXT = os.getenv("ANSWERING_MACHINE_TEXT")
 
+parser = argparse.ArgumentParser()
+parser.add_argument("debug",nargs='?')
+args = parser.parse_args()
 
 from google.cloud import storage
 storage_client = storage.Client()
@@ -80,6 +87,42 @@ def _get_private_key():
     return private_key
 
 PRIVATE_KEY = _get_private_key()
+
+if args.debug:
+    with wave.open("wav_stream.wav", 'wb') as wav_out:
+        for wav_path in glob.glob("test_files/*.wav"):
+            with wave.open(wav_path, 'rb') as wav_in:
+                if not wav_out.getnframes():
+                    wav_out.setparams(wav_in.getparams())
+                for i in range(20000):
+                   value = random.randint(0, 1)
+                   data = struct.pack('<h', value)
+                   wav_out.writeframesraw( data )
+                wav_out.writeframes(wav_in.readframes(wav_in.getnframes()))
+
+def debugNCCO(request,conversation_uuid):
+    ncco = [
+          {
+             "action": "connect",
+             # "eventUrl": [self.request.protocol +"://" + self.request.host  +"/event"],
+             "from": MY_LVN,
+             "endpoint": [
+                 {
+                    "type": "websocket",
+                    "uri" : "ws://"+request.host +"/socket",
+                    "content-type": "audio/l16;rate=16000",
+                    "headers": {
+                        "conversation_uuid":conversation_uuid #change to user
+                    }
+                 }
+             ]
+           },
+           {
+            "action": "stream",
+            "streamUrl": ["https://"+request.host+"/static/wav_stream.wav"]
+          }
+        ]
+    return ncco
 
 class BufferedPipe(object):
     def __init__(self, max_frames, sink):
@@ -150,13 +193,16 @@ class AudioProcessor(object):
             output.close()
             prediction = self.predict_from_file(fn)
             print("prediction",prediction)
-            self.upload_to_gcp(fn, conversation_uuid)
+
+            if args.debug == None:
+                self.upload_to_gcp(fn, conversation_uuid)
             self.remove_file(fn)
 
             if prediction[0] == 0:
                 nexmo_client.speak(conversation_uuid)
-                time.sleep(2)
-                nexmo_client.hangup(conversation_uuid)
+                if args.debug == None:
+                    time.sleep(2)
+                    nexmo_client.hangup(conversation_uuid)
         else:
             info('Discarding {} frames'.format(str(count)))
 
@@ -277,20 +323,25 @@ class EventHandler(tornado.web.RequestHandler):
 class EnterPhoneNumberHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
-        ncco = [
-              {
-                "action": "talk",
-                "text": "Please enter a phone number to dial"
-              },
-              {
-                "action": "input",
-                "eventUrl": [self.request.protocol +"://" + self.request.host +"/ivr"],
-                "timeOut":10,
-                "maxDigits":12,
-                "submitOnHash":True
-              }
+        print(self.request)
+        ncco = []
+        if args.debug:
+            ncco = debugNCCO(self.request,self.get_argument("conversation_uuid"))
+        else:
+            ncco = [
+                  {
+                    "action": "talk",
+                    "text": "Please enter a phone number to dial"
+                  },
+                  {
+                    "action": "input",
+                    "eventUrl": [self.request.protocol +"://" + self.request.host +"/ivr"],
+                    "timeOut":10,
+                    "maxDigits":12,
+                    "submitOnHash":True
+                  }
 
-            ]
+                ]
         self.write(json.dumps(ncco))
         self.set_header("Content-Type", 'application/json; charset="utf-8"')
         self.finish()
@@ -373,6 +424,7 @@ def main():
         )
         application = tornado.web.Application([
 			url(r"/ping", PingHandler),
+            (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": ""}),
             (r"/event", EventHandler),
             (r"/ncco", EnterPhoneNumberHandler),
             (r"/recording", RecordHandler),
