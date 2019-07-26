@@ -54,7 +54,7 @@ CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 conns = {}
 conversation_uuids = collections.defaultdict(list)
 nexmo_client = None
-loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190724T1739.pkl", "rb"))
+loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190726T1616.pkl", "rb"))
 print(loaded_model)
 
 
@@ -198,7 +198,8 @@ class AudioProcessor(object):
                 self.upload_to_gcp(fn, conversation_uuid)
             self.remove_file(fn)
 
-            if prediction[0] == 0:
+            if prediction[0] == 0 or prediction[0] == 1:
+                print("** beep detected **")
                 nexmo_client.speak(conversation_uuid)
                 if args.debug == None:
                     time.sleep(2)
