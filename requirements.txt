@@ -4,3 +4,4 @@ python-dotenv
 nexmo
 tornado==4.2
 webrtcvad
+python-dotenv
