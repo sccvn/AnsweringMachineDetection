@@ -37,6 +37,6 @@ COPY 7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key /usr/src/app/7c54cd2c-5984-44b3-af
 COPY amd-recordings-ccb5aa3253dd.json /usr/src/app/amd-recordings-ccb5aa3253dd.json
 #COPY /sample_files /usr/src/app/sample_files
 COPY /test_files /usr/src/app/test_files
-
+COPY .env /usr/src/app/.env
 EXPOSE 8000
 CMD [ "python", "./app.py", "debug"]
