@@ -39,4 +39,4 @@ COPY amd-recordings-ccb5aa3253dd.json /usr/src/app/amd-recordings-ccb5aa3253dd.j
 COPY /test_files /usr/src/app/test_files
 COPY .env /usr/src/app/.env
 EXPOSE 8000
-CMD [ "python", "./app.py", "debug"]
+CMD [ "python", "./app.py"]
