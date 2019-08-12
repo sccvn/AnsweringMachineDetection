@@ -41,7 +41,7 @@ Tools like [ngrok](https://ngrok.com/) are great for exposing ports on your loca
 If you are working with a local install you can run the server using this command:
 
 ```bash
-python websocket-demo.py
+python app.py
 ```
 
 ## Linking the app to Nexmo
