@@ -1,7 +1,4 @@
-ipython
-google-cloud-storage==1.13.2
 python-dotenv
 nexmo
 tornado==4.2
 webrtcvad
-python-dotenv
