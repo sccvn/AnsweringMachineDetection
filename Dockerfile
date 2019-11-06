@@ -33,9 +33,8 @@ RUN git clone https://github.com/mogwai/fastai_audio && \
 
 ADD app.py /usr/src/app
 COPY /models /usr/src/app/models
-COPY 7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key /usr/src/app/7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key
-COPY amd-recordings-ccb5aa3253dd.json /usr/src/app/amd-recordings-ccb5aa3253dd.json
-#COPY /sample_files /usr/src/app/sample_files
+COPY {PRIVATE_KEY} /usr/src/app/{PRIVATE_KEY} 
+COPY {FIREBASE_CONFIG} /usr/src/app/{FIREBASE_CONFIG}
 COPY /test_files /usr/src/app/test_files
 COPY .env /usr/src/app/.env
 EXPOSE 8000
