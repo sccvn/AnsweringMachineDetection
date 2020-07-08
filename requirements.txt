@@ -1,4 +1,6 @@
 python-dotenv
 nexmo
+numba==0.48
+librosa
 tornado==4.2
 webrtcvad
